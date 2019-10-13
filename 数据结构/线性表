@@ -1,0 +1,412 @@
+
+#define LIST_INIT_SIZE 100  //线性表存储空间的初始分配量
+#define LISTINCREMENT 10    //线性表存储空间的分配增量
+#define OVERFLOW -2         //内存溢出错误常量
+#define ILLEGAL -1          //非法操作错误常量
+#define OK 1                //表示操作正确的常量
+#define ERROR 0             //表示操作错误的常量
+
+typedef int Status;
+typedef float ElemType;
+
+typedef struct{
+    ElemType *elem;   //线性表存储空间初始分配量
+    int length;       //当前长度
+    int listsize;     //当前分配的存储容量（以sizeof(ElemType)为单位）
+}SqList;
+
+
+Status InitList_Sq(SqList &L, int n) {
+
+    //申请线性表的内存空间，申请n个元素大小的内存空间
+    L.elem = (ElemType *)malloc(n * sizeof(ElemType));
+
+    //判断内存是否分配成功
+    if(!L.elem){ //if(!L.elem) <=> if(L.elem == NULL)
+        exit(OVERFLOW); //若内存分配失败，则退出程序
+    }
+
+    //设置线性表的各个参数
+    L.length = 0;    //设置线性表的长度为0
+    L.listsize = n;  //设置线性表的空间大小为100个元素所占空间的大小
+
+    printf("线性表创建成功！\n");
+    return OK;
+}
+
+
+Status ListInsert_Sq(SqList &L, int i, ElemType e) {
+    //p和q都是工作指针，newbase是在插入的时候内存不够用才会用到的接收新分配的内存地址的指针变量
+    ElemType *p, *q, *newbase;
+
+    //判断参数i的值是否合法
+    if(i < 1 || i > L.length + 1) {
+        return ERROR;    //i的值不合法，返回错误
+    }
+
+    //插入操作之前需要先检查存储空间是否够用，若不够用就需要扩容
+    if(L.length >= L.listsize) {   //当前存储已满，需要扩容
+        newbase = (ElemType *)realloc(L.elem,
+                                      (LIST_INIT_SIZE + L.listsize) * sizeof(ElemType));
+
+        //判断内存空间是否分配成功
+        if(!newbase){ //if(!newbase)  <=>  if(newbase == NULL)
+            printf("内存申请失败！\n");
+            //若内存分配失败，则后续操作就没有意义了，此时应退出程序
+            exit(OVERFLOW);
+        }//if
+        printf("内存申请成功！\n");
+        L.elem = newbase;  //将线性表新基址赋给elem
+        L.listsize += LISTINCREMENT;  //增加存储容量
+    }
+    //找到插入位置
+    q = &(L.elem[i - 1]);  //q指示了插入位置
+
+    //将插入位置及之后的元素后移
+    for(p = &(L.elem[L.length - 1]); p >= q; --p) {
+        *(p + 1) = *p;
+    }//for
+
+    //将e插入到q指示的插入位置
+    *q = e;
+
+    //插入元素e后表长应该增加1
+    ++L.length;
+
+    //操作成功
+    return OK;
+}
+
+
+Status ListDelete_Sq(SqList &L, int i, ElemType &e){
+    //p和q是工作指针（工作指针就是起到临时保存指针变量的作用）
+    ElemType *p, *q;
+
+    //因为无法从空表中删除一个元素，所以要判断线性表是否为空
+    //if(ListIsEmpty_Sq(L)) <=> if(ListIsEmpty_Sq(L) != 0)
+    if(ListIsEmpty_Sq(L)) {
+        return ERROR;
+    }
+
+    //判断删除位置的参数i的值是否合法
+    if(i < 1 || i > L.length) {
+        return ERROR;    //i的值不合法，返回错误
+    }//if
+
+    //找到删除位置，p指示了被删除元素的位置
+    p = &(L.elem[i - 1]);
+
+    //保存将被删除的元素
+    e = *p;
+
+    //找到表尾元素的位置，q指示了表尾元素的位置
+    q = L.elem + L.length - 1;
+
+    //从被删除元素之后开始到表尾元素位置，将被删除元素之后的所有元素前移一位
+    //当此循环结束时，被删除元素被其紧随其后的元素覆盖了，也就是删除了
+    for(++p; p <= q; ++p) {
+        *(p-1) = *p;
+    }//for
+
+    //删除操作执行后表长应该减1
+    --L.length;
+
+    //操作成功
+    return OK;
+}
+
+Status MergeList_Sq(SqList La, SqList Lb, SqList &Lc) {
+
+    //工作指针pa, pb, pc分别保存了线性表a、b、c存储元素内存空间的首地址
+    //指针pa_last指向线性表a的表尾元素,  pb_last指向线性表b表尾元素
+    ElemType *pa, *pb, *pc, *pa_last, *pb_last;
+
+    //合并操作要求线性表a和线性表b不能为空
+    if(ListIsEmpty_Sq(La)) {
+        return ERROR;
+    }
+
+    if(ListIsEmpty_Sq(Lb)) {
+        return ERROR;
+    }
+
+    //工作指针pa, pb保存了线性表a、b存储元素内存空间的首地址
+    pa = La.elem;
+    pb = Lb.elem;
+
+    //合并后的线性表c表长等于被合并的线性表a和b的表长之和
+    Lc.listsize = Lc.length = La.length + Lb.length;
+
+    //确定线性表c的长度之后为其申请内存空间，大小等于a和b两表之和
+    pc = Lc.elem = (ElemType *)malloc(Lc.listsize * sizeof(ElemType));
+
+    //检查内存分配是否成功
+    if(!Lc.elem){ //if(!Lc.elem) <=> if(Lc.elem == NULL)
+        printf("内存申请失败！");
+        exit(OVERFLOW); //若内存分配失败，则退出程序
+    }//if
+
+    //计算出线性表a和b的表尾元素所在位置，分别赋给对应的指针变量pa_last和pb_last
+    pa_last = La.elem + La.length - 1;
+    pb_last = Lb.elem + Lb.length - 1;
+
+    while (pa <= pa_last && pb <= pb_last) {
+
+        //比较线性表a和b相同位置的元素，取较小的插入到表c末尾
+        if (*pa <= *pb) {
+            *pc++ = *pa++;
+        }//if
+        else {
+            *pc++ = *pb++;
+        }//else
+    }//while
+
+    while (pa <= pa_last) {
+        *pc++ = *pa++;      // 插入La的剩余元素
+    }
+
+    //如果线性表b没有处理完，由于线性表b的剩余元素已经有序，直接将它们插入表c就可以了
+    while (pb <= pb_last) {
+        *pc++ = *pb++;      // 插入Lb的剩余元素
+    }
+
+    return OK;
+}
+
+
+//******************************************线性单链表********************************************
+
+typedef int Status;       //用typedef给int起个别名，也便于程序的维护
+typedef float ElemType;   //用typedef给float起个别名，也便于程序的维护
+
+typedef struct LNode {    //用C语言描述线性单链表的结构，声明结构体的同时声明一个结构体指针
+    ElemType data;            //数据域
+    struct LNode *next;       //指针域
+}LNode, * LinkList;
+
+Status InitList_L(LinkList &L, int n){
+    int i;
+
+    LinkList p;
+
+    //先构造一个空的单链表，完成头结点的创建
+    MallocList_L(L);
+
+    //将头结点的指针域设置为NULL
+    L->next = NULL;
+
+    //->初始化单链表的方法有多种，这里写了两种方法，根据需要保留一个，另一个注释掉即可
+
+    /*
+     //1.使用头插法创建带头结点的单链线性表L，要求输入元素时“逆位序 ”输入
+     for(i = n; i > 0; --i){
+
+     //生成新结点
+     p = (LinkList)malloc(sizeof(LNode));
+
+     //从键盘接收元素值，并存入p指向结点的数据域
+     printf("请输入第%d个元素的值：(逆位序输入)\n", i);
+     scanf("%f", &p->data);
+
+     //将线性表头结点后面的所有节点链接到p后面
+     p->next = L->next;
+
+     //将p链接到头结点后面，也就是把p插入到了线性表的表头
+     L->next = p;
+     }
+     */
+
+    //2.使用尾插法创建带头结点的单链线性表L，按照正常位序输入元素
+    printf("请依次输入元素的值（用空格隔开）：\n");
+    LinkList tail = L;
+    for(i = 0; i < n; i++){
+
+        //生成一个新结点，使p指向此结点
+        MallocList_L(p);
+
+        //从键盘接收元素值，并存入p指向结点的数据域
+        scanf("%f", &p->data);
+
+        //将新申请的结点的指针域设为NULL，因为p结点要作为新的表尾结点使用，所以后面没有后继
+        p->next = NULL;
+
+        //将p节点链接到当前表尾元素的后面，成为新的表尾结点
+        tail->next = p;
+
+        //p成为了新的表尾结点，修改tail使其指向p
+        tail = p;
+    }//for
+
+    //头结点数据域记录了单链表的长度，由于初始化了n个元素，所以赋值n
+    L->data = n;
+
+    //操作成功
+    return OK;
+} //InitList_L
+
+
+//3.------------------------------------线性单表中插入元素的操作-----------------------------------
+
+/*
+ 函数：ListInsert_L
+ 参数：LinkList &L 单链表的头指针
+ int i 插入位置i
+ ElemType e 插入元素e
+ 返回值：状态码，OK表示操作成功，ERROR表示操作失败
+ 作用：在带头结点的线性单链表L中第i个位置之前插入元素e
+ */
+Status ListInsert_L(LinkList &L, int i, ElemType e){
+    LinkList p = L, s;
+
+    //计数器，临时变量，用于记录查找插入位置的下标情况
+    int j = 0;
+
+    //遍历单链表，寻找第i-1个结点，并使p指向该节点
+    while(p && j < i - 1){
+        p = p->next; //向后查找
+        ++j;
+    }//while
+
+    //检查是否找到了第i-1个结点，如果p为空或者j超过了i-1
+    //就说明没找到第i-1个结点，p为空表示当前线性表节点数小于i-1
+    //j > i-1说明索引j越界了
+    if(!p || j > i - 1) {
+        return ERROR;
+    }
+
+    //如果执行到了这里，说明找到了第i-1个结点，此时p指向第i-1个结点
+    //生成一个新结点，并使s指向该节点
+    s = (LinkList)malloc(sizeof(LNode));
+
+    //将待插入的元素e设置到新节点s的数据域
+    s->data = e;
+
+    //将第i个结点及其后面的结点链接到结点s的后面（接管p的后继以及后面的结点）
+    s->next = p->next;
+
+    //将s链接到p结点（也就是第i-1个结点）后面
+    p->next = s;
+
+    //头结点数据域存储的单链表表长+1
+    L->data += 1;
+
+    //操作成功
+    return OK;
+}
+
+//4.------------------------------------线性单链表中删除元素的操作-----------------------------------
+
+/*
+ 函数：ListDelete_L
+ 参数：LinkList &L 单链表的头指针
+ int i 删除位置i
+ ElemType &e 带回被删除元素e
+ 返回值：状态码，OK表示操作成功，ERROR表示操作失败
+ 作用：在带头结点的线性单链表L中,删除第i个元素,并由e返回其值
+ */
+Status ListDelete_L(LinkList &L, int i, ElemType &e){
+
+    //工作指针q
+    LinkList q;
+
+    //对空表做删除操作没有意义，要先判断单链表是否为空
+    if(ListIsEmpty_L(L)) {
+        return ERROR;
+    }
+
+    //工作指针p，指向单链表头结点
+    LinkList p = L;
+
+    //计数器，临时变量，用于记录查找删除位置的下标情况
+    int j = 0;
+
+    //遍历单链表，寻找第i-1个结点，并使p指向该节点
+    while(p->next && j < i - 1) {
+        p = p->next; //向后查找
+        ++j;
+    }
+
+    //检查是否找到了第i-1个结点，如果p的后继指针域为空或者j超过了i-1
+    //就说明没找到第i-1个结点，p的后继指针域为空表示当前线性表节点数小于i-1
+    //j > i-1说明索引j越界了
+    if(!(p->next) || j > i - 1) {
+        return ERROR;
+    }
+
+    //使q指向第i个结点，此节点就是要删除的结点
+    q = p->next;
+
+    //将q（第i+1个结点）后面的结点链接到p（第i-1个结点）的后面，
+    //将q指向的结点隔离出单链表，即删除第i各节点
+    p->next = q->next;
+
+    //保存q结点数据域存储的值到e
+    e = q->data;
+
+    //释放q指向节点（第i个结点）的空间
+    free(q);
+
+    //删除元素后头结点保存的表长-1
+    L->data -= 1;
+
+    //操作成功
+    return OK;
+}
+
+//6. -----------------------------------线性单链表中合并元素的操作---------------------------------
+
+/*
+ 函数：MergeList_L
+ 参数：LinkList &La 被合并单链表a的头指针
+ LinkList &Lb 被合并单链表b的头指针
+ LinkList &Lc 单链表a和b合并后得到单链表c
+ 返回值：状态码，操作成功返回OK，操作失败返回ERROR
+ 作用：已知线性单链表La和Lb的元素按值非递减排列，
+ 归并La和Lb得到新的线性单链表Lc，Lc的元素也按值非递减排列
+ */
+Status MergeList_L(LinkList &La, LinkList &Lb, LinkList &Lc){
+
+    //对空表进行合并操作没有意义，合并前需要先判断单链表是否为空
+    if(ListIsEmpty_L(La)) {
+        return ERROR;
+    }
+
+    if(ListIsEmpty_L(Lb)) {
+        return ERROR;
+    }
+
+    if(ListIsEmpty_L(Lc)) {
+        return ERROR;
+    }
+
+    //工作指针pa、pb、pc，分别用于指向a、b、c三个单链表的节点
+    LinkList pa, pb, pc;
+
+    //设置工作指针的初始位置
+    pa = La->next;  //使pa指向单链表a的首元结点（头结点后面的第一个数据节点）
+    pb = Lb->next;  //使pb指向单链表b的首元结点（头结点后面的第一个数据节点）
+    Lc = pc = La;   //用线性表a的头结点作为线性表c的头结点
+
+    //循环继续的条件：单链表La和Lb的工作指针不同时为空（两个表都没有完成遍历操作）
+    //while(pa && pb) <=> while(pa != NULL && pb != NULL)
+    while(pa && pb) {
+
+        //pa所指结点元素大于pb所指结点元素
+        if(pa->data <= pb->data) {
+
+            pc->next = pa;  //将pa所指结点链入Lc中
+            pc = pa;        //使pc、pa指向同一结点
+            pa = pa->next;  //pa移向原来La链上当前位置的下一个结点
+        }
+        else {   //pa所指结点元素小于pb所指结点元素
+
+            pc->next = pb;  //将pb所指结点链入Lc中
+            pc = pb;        //使pc、pb指向同一结点
+            pb = pb->next;  //pb移向原来Lb链上当前位置的下一个结点
+        }
+    }
+
+    //pc->next = pa说明单链表a还有结点没处理完，同理pc->next = pb表示单链表b还有结点没处理完
+    pc->next = pa ? pa : pb;   //插入剩余段
+    return OK;
+}
